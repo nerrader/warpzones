@@ -1,11 +1,12 @@
+use std::{
+    collections::HashMap,
+    fs,
+    path::{self, Path, PathBuf},
+};
+
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use directories::ProjectDirs;
-use std::collections::HashMap;
-use std::fs;
-use std::path;
-use std::path::Path;
-use std::path::PathBuf;
 
 /// A CLI tool to create "warpzones" around your command line filesystem.
 #[derive(Parser)]

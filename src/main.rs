@@ -65,7 +65,7 @@ fn main() {
         Some(Commands::Init) => {}
         None => {}
     }
-    save_warpzones(&warpzone_path, warpzones);
+    save_warpzones(&warpzone_path, &warpzones);
 }
 
 fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
@@ -73,9 +73,9 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
     if warpzones.contains_key(&name) {
-        println!(
+        eprintln!(
             "{} {}",
-            "warning: there is already a warpzone named: ".yellow(),
+            "user-error: there is already a warpzone named: ".yellow(),
             name.yellow()
         );
         std::process::exit(0);
@@ -91,7 +91,7 @@ fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
     if !warpzones.contains_key(&name) {
         println!(
             "{} {}",
-            "warning: there is no warpzone named: ".yellow(),
+            "user-error: there is no warpzone named: ".yellow(),
             name.yellow()
         );
         std::process::exit(0);
@@ -104,11 +104,11 @@ fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
 fn delete_warpzone(name: String, warpzones: &mut Warpzones) {
     match warpzones.remove(&name) {
         Some(_) => println!("deleted {} warpzone", name),
-        None => println!("key not found in warpzones: {}", name),
+        None => println!("user-error: {} not found in warpzone names", name),
     }
 }
 
-fn save_warpzones(path: &Path, warpzones: Warpzones) {
+fn save_warpzones(path: &Path, warpzones: &Warpzones) {
     let json =
         serde_json::to_string_pretty(&warpzones).expect("could not serialize warpzones to json");
     fs::write(path, json)

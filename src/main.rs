@@ -56,9 +56,11 @@ fn main() {
     match cli.command {
         Some(Commands::Add { name, path }) => add_warpzone(name, path, &mut warpzones),
         Some(Commands::Delete { name }) => delete_warpzone(name, &mut warpzones),
-        Some(Commands::Update { name, path }) => {}
+        Some(Commands::Update { name, path }) => {
+            update_warpzone(name, path, &mut warpzones);
+        }
         Some(Commands::List) => list_warpzones(&warpzones),
-        Some(Commands::Clear) => {}
+        Some(Commands::Clear) => warpzones.clear(),
         Some(Commands::Init) => {}
         None => {}
     }
@@ -79,6 +81,23 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, Pat
     }
     warpzones.insert(name.clone(), absolute_path.clone());
     println!("added {} warpzone: {}", name, absolute_path.display());
+}
+
+fn update_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, PathBuf>) {
+    let absolute_path =
+        path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
+
+    if !warpzones.contains_key(&name) {
+        println!(
+            "{} {}",
+            "warning: there is no warpzone named: ".yellow(),
+            name.yellow()
+        );
+        std::process::exit(0);
+    }
+    // basically overwrites the old value
+    warpzones.insert(name.clone(), absolute_path.clone());
+    println!("updated {} warpzone: {}", name, absolute_path.display());
 }
 
 fn delete_warpzone(name: String, warpzones: &mut HashMap<String, PathBuf>) {

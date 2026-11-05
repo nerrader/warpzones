@@ -55,7 +55,7 @@ fn main() {
     #[allow(unused_variables)]
     match cli.command {
         Some(Commands::Add { name, path }) => add_warpzone(name, path, &mut warpzones),
-        Some(Commands::Delete { name }) => delete_warpzone(name),
+        Some(Commands::Delete { name }) => delete_warpzone(name, &mut warpzones),
         Some(Commands::Update { name, path }) => {}
         Some(Commands::List) => list_warpzones(&warpzones),
         Some(Commands::Clear) => {}
@@ -81,8 +81,11 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, Pat
     println!("added {} warpzone: {}", name, absolute_path.display());
 }
 
-fn delete_warpzone(name: String) {
-    println!("deleted {} warpzone", name);
+fn delete_warpzone(name: String, warpzones: &mut HashMap<String, PathBuf>) {
+    match warpzones.remove(&name) {
+        Some(_) => println!("deleted {} warpzone", name),
+        None => println!("key not found in warpzones: {}", name),
+    }
 }
 
 fn save_warpzones(path: &Path, warpzones: HashMap<String, PathBuf>) {

@@ -36,6 +36,7 @@ enum Commands {
     Init,
 }
 
+type Warpzones = HashMap<String, PathBuf>;
 fn main() {
     let cli = Cli::parse();
 
@@ -49,8 +50,7 @@ fn main() {
         println!("You enabled verbose logging!")
     }
 
-    let mut warpzones: HashMap<String, PathBuf> =
-        load_warpzones(&warpzone_path).unwrap_or_default();
+    let mut warpzones: Warpzones = load_warpzones(&warpzone_path).unwrap_or_default();
 
     // TODO: remove this when done
     #[allow(unused_variables)]
@@ -68,7 +68,7 @@ fn main() {
     save_warpzones(&warpzone_path, warpzones);
 }
 
-fn add_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, PathBuf>) {
+fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
     let absolute_path =
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
@@ -84,7 +84,7 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, Pat
     println!("added {} warpzone: {}", name, absolute_path.display());
 }
 
-fn update_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, PathBuf>) {
+fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
     let absolute_path =
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
@@ -101,27 +101,27 @@ fn update_warpzone(name: String, path: PathBuf, warpzones: &mut HashMap<String, 
     println!("updated {} warpzone: {}", name, absolute_path.display());
 }
 
-fn delete_warpzone(name: String, warpzones: &mut HashMap<String, PathBuf>) {
+fn delete_warpzone(name: String, warpzones: &mut Warpzones) {
     match warpzones.remove(&name) {
         Some(_) => println!("deleted {} warpzone", name),
         None => println!("key not found in warpzones: {}", name),
     }
 }
 
-fn save_warpzones(path: &Path, warpzones: HashMap<String, PathBuf>) {
+fn save_warpzones(path: &Path, warpzones: Warpzones) {
     let json =
         serde_json::to_string_pretty(&warpzones).expect("could not serialize warpzones to json");
     fs::write(path, json)
         .unwrap_or_else(|_| panic!("could not write json to savefile: {}", path.display()));
 }
 
-fn load_warpzones(path: &Path) -> Result<HashMap<String, PathBuf>, Box<dyn std::error::Error>> {
+fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> {
     let contents = fs::read_to_string(path)?;
     let warpzones = serde_json::from_str(&contents)?;
     Ok(warpzones)
 }
 
-fn list_warpzones(warpzones: &HashMap<String, PathBuf>) {
+fn list_warpzones(warpzones: &Warpzones) {
     for (name, path) in warpzones {
         println!("{} => {}", name, path.display())
     }

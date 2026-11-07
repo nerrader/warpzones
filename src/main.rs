@@ -57,7 +57,7 @@ fn main() {
     fs::create_dir_all(&data_dir).expect("could not create project directories");
     let warpzone_path = data_dir.join("warpzones.json");
     if cli.verbose {
-        println!("You enabled verbose logging!")
+        println!("you enabled verbose logging!")
     }
 
     let mut warpzones: Warpzones = load_warpzones(&warpzone_path).unwrap_or_default();
@@ -69,7 +69,10 @@ fn main() {
             update_warpzone(name, path, &mut warpzones);
         }
         Some(Commands::List { warpzone }) => list_warpzones(&warpzones, warpzone),
-        Some(Commands::Clear) => warpzones.clear(),
+        Some(Commands::Clear) => {
+            warpzones.clear();
+            println!("{}", "cleared all warpzones!".green())
+        }
         Some(Commands::Init { shell }) => init_shell(shell),
         None => {}
     }
@@ -83,13 +86,16 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
     if warpzones.contains_key(&name) {
         eprintln!(
             "{} {}",
-            "user-error: there is already a warpzone named: ".yellow(),
-            name.yellow()
+            "user-error: there is already a warpzone named ".red(),
+            name.red()
         );
         std::process::exit(0);
     }
     warpzones.insert(name.clone(), absolute_path.clone());
-    println!("added {} warpzone: {}", name, absolute_path.display());
+    println!(
+        "{}",
+        format!("added {} warpzone: {}", name, absolute_path.display()).green()
+    );
 }
 
 fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
@@ -97,22 +103,31 @@ fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
     if !warpzones.contains_key(&name) {
-        println!(
+        eprintln!(
             "{} {}",
-            "user-error: there is no warpzone named: ".yellow(),
+            "user-error: there is no warpzone named: ".red(),
             name.yellow()
         );
-        std::process::exit(0);
+        return;
     }
     // basically overwrites the old value
     warpzones.insert(name.clone(), absolute_path.clone());
-    println!("updated {} warpzone: {}", name, absolute_path.display());
+    println!(
+        "{}",
+        format!("updated {} warpzone: {}", name, absolute_path.display()).green()
+    );
 }
 
 fn delete_warpzone(name: String, warpzones: &mut Warpzones) {
     match warpzones.remove(&name) {
-        Some(_) => println!("deleted {} warpzone", name),
-        None => println!("user-error: {} not found in warpzone names", name),
+        Some(_) => println!(
+            "{}",
+            format!("successfully deleted {} warpzone", name).green()
+        ),
+        None => eprintln!(
+            "{}",
+            format!("user-error: {} not found in warpzones", name).red()
+        ),
     }
 }
 
@@ -132,11 +147,13 @@ fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> 
 // TODO: Add fix for duplicating of warp functions later
 fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
     if let Some(warpzone_name) = specific_warpzone {
-        if let Some(path) = warpzones.get(&warpzone_name) {
-            println!("{}", path.display());
-            return;
+        match warpzones.get(&warpzone_name) {
+            Some(path) => println!("{}", path.display()),
+            None => eprintln!(
+                "{}",
+                format!("user-error: warpzone {} does not exist", warpzone_name).red()
+            ),
         }
-        eprintln!("warpzone {} does not exist", warpzone_name)
     }
     for (name, path) in warpzones {
         println!("{} => {}", name, path.display())
@@ -146,7 +163,7 @@ fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
 fn init_shell(shell: String) {
     match shell.as_str() {
         "powershell" => init_powershell(),
-        _ => println!("{} not supported!", shell),
+        _ => eprintln!("{}", format!("user-error: {} not supported!", shell).red()),
     }
 }
 
@@ -165,7 +182,7 @@ fn init_powershell() {
         .expect("could not open file");
 
     let exe_path = current_exe().expect("could not find executable path");
-    let _ = writeln!(
+    writeln!(
         file,
         r#"
 function warp ($warpzone) {{
@@ -177,5 +194,6 @@ function warp ($warpzone) {{
     }}
 }}"#,
         exe_path.display()
-    );
+    )
+    .expect("could not write to powershell profile");
 }

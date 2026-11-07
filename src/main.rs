@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
-    fs,
+    env::current_exe,
+    fs::{self, OpenOptions},
+    io::Write,
     path::{self, Path, PathBuf},
+    process::Command,
 };
 
 use clap::{Parser, Subcommand};
@@ -29,11 +32,18 @@ enum Commands {
     /// Updates a warpzone's path with the name.
     Update { name: String, path: PathBuf },
     /// Lists all warpzones with their paths.
-    List,
+    List {
+        #[arg(short, long, help = "Gets the path of a specific warpzone")]
+        warpzone: Option<String>,
+    },
     /// Clears all warpzones.
     Clear,
-    /// Initializes your shell configuration to accept warp as a command to actually warp.
-    Init,
+    /// Initializes your shell configuration to accept warp as a command.
+    /// This is required to actually warp.
+    Init {
+        #[arg(help = "Shell to configure. Supported: ps (powershell)")]
+        shell: String,
+    },
 }
 
 type Warpzones = HashMap<String, PathBuf>;
@@ -52,17 +62,15 @@ fn main() {
 
     let mut warpzones: Warpzones = load_warpzones(&warpzone_path).unwrap_or_default();
 
-    // TODO: remove this when done
-    #[allow(unused_variables)]
     match cli.command {
         Some(Commands::Add { name, path }) => add_warpzone(name, path, &mut warpzones),
         Some(Commands::Delete { name }) => delete_warpzone(name, &mut warpzones),
         Some(Commands::Update { name, path }) => {
             update_warpzone(name, path, &mut warpzones);
         }
-        Some(Commands::List) => list_warpzones(&warpzones),
+        Some(Commands::List { warpzone }) => list_warpzones(&warpzones, warpzone),
         Some(Commands::Clear) => warpzones.clear(),
-        Some(Commands::Init) => {}
+        Some(Commands::Init { shell }) => init_shell(shell),
         None => {}
     }
     save_warpzones(&warpzone_path, &warpzones);
@@ -121,8 +129,53 @@ fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> 
     Ok(warpzones)
 }
 
-fn list_warpzones(warpzones: &Warpzones) {
+// TODO: Add fix for duplicating of warp functions later
+fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
+    if let Some(warpzone_name) = specific_warpzone {
+        if let Some(path) = warpzones.get(&warpzone_name) {
+            println!("{}", path.display());
+            return;
+        }
+        eprintln!("warpzone {} does not exist", warpzone_name)
+    }
     for (name, path) in warpzones {
         println!("{} => {}", name, path.display())
     }
+}
+
+fn init_shell(shell: String) {
+    match shell.as_str() {
+        "powershell" => init_powershell(),
+        _ => println!("{} not supported!", shell),
+    }
+}
+
+fn init_powershell() {
+    let powershell_output = Command::new("powershell")
+        .args(["-NoProfile", "-Command", "$PROFILE"])
+        .output()
+        .unwrap();
+    let profile = String::from_utf8_lossy(&powershell_output.stdout)
+        .trim()
+        .to_string();
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(profile)
+        .expect("could not open file");
+
+    let exe_path = current_exe().expect("could not find executable path");
+    let _ = writeln!(
+        file,
+        r#"
+function warp ($warpzone) {{
+
+    $path = & "{}" list --warpzone $warpzone
+
+    if ($LASTEXITCODE -eq 0 -and $path) {{
+        Set-Location $path.Trim()
+    }}
+}}"#,
+        exe_path.display()
+    );
 }

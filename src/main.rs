@@ -60,6 +60,8 @@ fn main() {
         println!("you enabled verbose logging!")
     }
 
+    // TODO: add a better way to deal with this
+    // like distinguishing a missing file from corrupted json
     let mut warpzones: Warpzones = load_warpzones(&warpzone_path).unwrap_or_default();
 
     match cli.command {
@@ -80,6 +82,7 @@ fn main() {
 }
 
 fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
+    // Adds a warpzone by its name and path to the mutable warpzones hashmap.
     let absolute_path =
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
@@ -99,6 +102,7 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
 }
 
 fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
+    // Updates a warpzone path by its name
     let absolute_path =
         path::absolute(&path).unwrap_or_else(|_| panic!("invalid path: {}", path.display()));
 
@@ -119,6 +123,7 @@ fn update_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
 }
 
 fn delete_warpzone(name: String, warpzones: &mut Warpzones) {
+    // Deletes a warpzone by its name.
     match warpzones.remove(&name) {
         Some(_) => println!(
             "{}",
@@ -132,6 +137,7 @@ fn delete_warpzone(name: String, warpzones: &mut Warpzones) {
 }
 
 fn save_warpzones(path: &Path, warpzones: &Warpzones) {
+    // Writes the warpzones hashmap to a JSON file.
     let json =
         serde_json::to_string_pretty(&warpzones).expect("could not serialize warpzones to json");
     fs::write(path, json)
@@ -139,6 +145,7 @@ fn save_warpzones(path: &Path, warpzones: &Warpzones) {
 }
 
 fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> {
+    // Loads the warpzones hashmap from a JSON file.
     let contents = fs::read_to_string(path)?;
     let warpzones = serde_json::from_str(&contents)?;
     Ok(warpzones)
@@ -146,6 +153,9 @@ fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> 
 
 // TODO: Add fix for duplicating of warp functions later
 fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
+    // Lists the warpzones in (name => path) format.
+    // If specific_warpzone is a real name in warpzones, only prints the path.
+    // Though that option should only be used for the the warp in init.
     if let Some(warpzone_name) = specific_warpzone {
         match warpzones.get(&warpzone_name) {
             Some(path) => println!("{}", path.display()),
@@ -154,6 +164,7 @@ fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
                 format!("user-error: warpzone {} does not exist", warpzone_name).red()
             ),
         }
+        return;
     }
     for (name, path) in warpzones {
         println!("{} => {}", name, path.display())
@@ -161,6 +172,7 @@ fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
 }
 
 fn init_shell(shell: String) {
+    // Matches the shell to a specific init function.
     match shell.as_str() {
         "powershell" => init_powershell(),
         _ => eprintln!("{}", format!("user-error: {} not supported!", shell).red()),
@@ -168,6 +180,7 @@ fn init_shell(shell: String) {
 }
 
 fn init_powershell() {
+    // Initializes the 'warp' command for powershell and ps7
     let powershell_output = Command::new("powershell")
         .args(["-NoProfile", "-Command", "$PROFILE"])
         .output()

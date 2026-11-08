@@ -46,6 +46,23 @@ enum Commands {
     },
 }
 
+enum JsonLoadError {
+    Io(std::io::Error),
+    Json(serde_json::Error),
+}
+
+impl From<std::io::Error> for JsonLoadError {
+    fn from(error: std::io::Error) -> Self {
+        JsonLoadError::Io(error)
+    }
+}
+
+impl From<serde_json::Error> for JsonLoadError {
+    fn from(error: serde_json::Error) -> Self {
+        JsonLoadError::Json(error)
+    }
+}
+
 type Warpzones = HashMap<String, PathBuf>;
 fn main() {
     let cli = Cli::parse();
@@ -60,9 +77,27 @@ fn main() {
         println!("you enabled verbose logging!")
     }
 
-    // TODO: add a better way to deal with this
-    // like distinguishing a missing file from corrupted json
-    let mut warpzones: Warpzones = load_warpzones(&warpzone_path).unwrap_or_default();
+    let result = load_warpzones(&warpzone_path);
+    let mut warpzones: Warpzones = match result {
+        Ok(warpzones) => warpzones,
+        Err(JsonLoadError::Io(error)) => {
+            eprintln!(
+                "{}",
+                "failed to read json file, defaulting to empty warpzones.".red()
+            );
+            eprintln!("{}", format!("detailed message: {}", error).red());
+            Warpzones::new()
+        }
+        Err(JsonLoadError::Json(error)) => {
+            eprintln!(
+                "{}",
+                "failed to parse json, data might be corrupted, defaulting to empty warpzones."
+                    .red()
+            );
+            eprintln!("{}", format!("detailed message: {}", error).red());
+            Warpzones::new()
+        }
+    };
 
     match cli.command {
         Some(Commands::Add { name, path }) => add_warpzone(name, path, &mut warpzones),
@@ -92,7 +127,7 @@ fn add_warpzone(name: String, path: PathBuf, warpzones: &mut Warpzones) {
             "user-error: there is already a warpzone named ".red(),
             name.red()
         );
-        std::process::exit(0);
+        return;
     }
     warpzones.insert(name.clone(), absolute_path.clone());
     println!(
@@ -144,7 +179,7 @@ fn save_warpzones(path: &Path, warpzones: &Warpzones) {
         .unwrap_or_else(|_| panic!("could not write json to savefile: {}", path.display()));
 }
 
-fn load_warpzones(path: &Path) -> Result<Warpzones, Box<dyn std::error::Error>> {
+fn load_warpzones(path: &Path) -> Result<Warpzones, JsonLoadError> {
     // Loads the warpzones hashmap from a JSON file.
     let contents = fs::read_to_string(path)?;
     let warpzones = serde_json::from_str(&contents)?;

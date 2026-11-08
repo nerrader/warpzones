@@ -186,7 +186,6 @@ fn load_warpzones(path: &Path) -> Result<Warpzones, JsonLoadError> {
     Ok(warpzones)
 }
 
-// TODO: Add fix for duplicating of warp functions later
 fn list_warpzones(warpzones: &Warpzones, specific_warpzone: Option<String>) {
     // Lists the warpzones in (name => path) format.
     // If specific_warpzone is a real name in warpzones, only prints the path.
@@ -214,6 +213,7 @@ fn init_shell(shell: String) {
     }
 }
 
+// TODO: Refactor this function to make it more readable
 fn init_powershell() {
     // Initializes the 'warp' command for powershell and ps7
     let powershell_output = Command::new("powershell")
@@ -226,13 +226,17 @@ fn init_powershell() {
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open(profile)
-        .expect("could not open file");
+        .open(&profile)
+        .expect("could not open powershell profile for some reason");
+
+    let mut profile_contents = fs::read_to_string(&profile).unwrap();
 
     let exe_path = current_exe().expect("could not find executable path");
-    writeln!(
-        file,
-        r#"
+
+    let start_marker = "# WARPZONE BLOCK START";
+    let end_marker = "# WARPZONE BLOCK END";
+    let warp_function = format!(
+        r##"{}
 function warp ($warpzone) {{
 
     $path = & "{}" list --warpzone $warpzone
@@ -240,8 +244,24 @@ function warp ($warpzone) {{
     if ($LASTEXITCODE -eq 0 -and $path) {{
         Set-Location $path.Trim()
     }}
-}}"#,
-        exe_path.display()
-    )
-    .expect("could not write to powershell profile");
+}}
+{}"##,
+        start_marker,
+        exe_path.display(),
+        end_marker
+    );
+
+    let start_marker_index = profile_contents.find(start_marker);
+    let end_marker_index = profile_contents.find(end_marker);
+
+    if let (Some(start), Some(end_offset)) = (start_marker_index, end_marker_index) {
+        let end = end_offset + end_marker.len();
+        profile_contents.replace_range(start..end, &warp_function);
+        fs::write(&profile, &profile_contents).expect("could not write to powershell profile");
+        return;
+    }
+
+    // added a newline at the start cause it looks better with it
+    // not in the string itself cause it would interfere with the replacing
+    writeln!(file, "\n\n{}", warp_function).expect("could not write to powershell profile");
 }
